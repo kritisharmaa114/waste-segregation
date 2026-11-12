@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Waste Sorter AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:wght@400;700&display=swap">
+<style>
+/* Layout: camera on the left, three numbered step cards on the right; stacks on small screens */
+:root{
+  --forest:#12372A; --forest-2:#1C4A39; --cream:#FBF5E9; --paper:#FFFDF7;
+  --ink:#12372A; --muted:#4F675D; --line:#D9D2C1;
+  --wet:#1E7A4C; --dry:#E07A1F; --sun:#FFC83D;
+  --display:'Fredoka', 'Trebuchet MS', Arial, sans-serif;
+  --body:'Nunito Sans', Arial, sans-serif;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--cream);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+header{background:var(--forest);color:var(--cream);padding:18px max(16px,4vw)}
+header .wrap{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header h1{font-family:var(--display);font-size:clamp(26px,4vw,40px);margin:0;letter-spacing:.3px}
+header p{margin:0;color:#BFD8D5;font-size:15px}
+main{max-width:1180px;margin:0 auto;padding:24px max(16px,4vw) 48px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){main{grid-template-columns:1fr}}
+
+.camcard{background:var(--forest);border-radius:24px;padding:16px;position:sticky;top:16px}
+@media (max-width:860px){.camcard{position:static}}
+.camwrap{position:relative;aspect-ratio:1/1;max-width:100%;border-radius:16px;overflow:hidden;background:#0B241B}
+video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.camoff{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--cream);text-align:center;padding:24px}
+.camoff p{margin:0;color:#BFD8D5;max-width:32ch}
+.guide{position:absolute;inset:14%;border:3px dashed rgba(255,255,255,.45);border-radius:18px;pointer-events:none}
+.badge{position:absolute;left:16px;top:16px;font-family:var(--display);font-weight:600;font-size:clamp(22px,3vw,30px);padding:8px 18px;border-radius:14px;background:var(--paper);color:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.recdot{position:absolute;right:16px;top:16px;background:#D93B30;color:#fff;font-weight:700;padding:6px 12px;border-radius:999px;font-size:14px}
+.camfoot{color:#BFD8D5;font-size:14px;margin:12px 4px 0}
+
+.steps{display:flex;flex-direction:column;gap:18px}
+.step{background:var(--paper);border:2px solid var(--line);border-radius:22px;padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.step.off{opacity:.5}
+.step h2{font-family:var(--display);font-size:24px;margin:0;display:flex;align-items:center;gap:12px}
+.num{width:36px;height:36px;border-radius:50%;background:var(--forest);color:var(--cream);display:inline-flex;align-items:center;justify-content:center;font-size:19px;flex:none}
+.step p.hint{margin:0;color:var(--muted)}
+.classes{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:420px){.classes{grid-template-columns:1fr}}
+.cls{border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;color:#fff}
+.cls.wet{background:var(--wet)} .cls.dry{background:var(--dry)}
+.cls .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.cls h3{font-family:var(--display);font-size:24px;margin:0}
+.cls .count{font-weight:700;font-variant-numeric:tabular-nums}
+.cls small{opacity:.9}
+.thumbs{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;min-height:34px}
+.thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;transform:scaleX(-1)}
+button{font-family:var(--display);font-weight:600;font-size:18px;border:none;border-radius:14px;padding:12px 18px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
+button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.hold{background:var(--paper);color:var(--ink)}
+.hold.active{background:var(--sun)}
+.big{background:var(--forest);color:var(--cream);font-size:20px;padding:14px 22px}
+.start{background:var(--sun);color:var(--forest);font-size:20px;padding:14px 24px}
+.ghost{background:transparent;color:var(--muted);border:2px solid var(--line);font-size:15px;padding:8px 14px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.bar{height:12px;background:#EAE3D2;border-radius:999px;overflow:hidden;flex:1;min-width:120px}
+.bar i{display:block;height:100%;width:0;background:var(--forest);transition:width .1s linear}
+.msg{font-weight:700}
+.meter{display:grid;grid-template-columns:70px 1fr 52px;gap:10px;align-items:center;font-weight:700}
+.meter .track{height:22px;background:#EAE3D2;border-radius:999px;overflow:hidden}
+.meter .fill{height:100%;width:0;border-radius:999px;transition:width .2s}
+.meter span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.why{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.why figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:700}
+.why img{width:64px;height:64px;object-fit:cover;border-radius:10px;transform:scaleX(-1);border:3px solid transparent}
+.explain{background:#F3EEDF;border-radius:14px;padding:12px 14px;color:var(--muted);font-size:15px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>♻️ My Waste Sorter AI</h1>
+  <p>Teach it · Train it · Test it</p>
+</div></header>
+
+<main>
+  <section class="camcard" aria-label="Camera">
+    <div class="camwrap">
+      <video id="cam" playsinline muted></video>
+      <div class="guide" id="guide" hidden></div>
+      <div class="badge" id="badge" hidden></div>
+      <div class="recdot" id="recdot" hidden>● Recording</div>
+      <div class="camoff" id="camoff">
+        <p style="font-size:44px;margin:0">📷</p>
+        <button class="start" id="startBtn">Turn on camera</button>
+        <p id="camMsg">Click the button, then press <b>Allow</b> when the browser asks.</p>
+      </div>
+    </div>
+    <p class="camfoot">Keep the item inside the dotted box. Use the same table or wall behind it.</p>
+  </section>
+
+  <div class="steps">
+    <section class="step off" id="step1">
+      <h2><span class="num">1</span> Teach: show examples</h2>
+      <p class="hint"><b>Press and hold</b> a button while you show the item. Turn it slowly. Get at least 20 photos of each!</p>
+      <div class="classes">
+        <div class="cls wet">
+          <div class="top"><h3>🍌 Wet</h3><span class="count" id="countWet">0 photos</span></div>
+          <small>Peels, fruit, food scraps</small>
+          <div class="thumbs" id="thumbsWet"></div>
+          <button class="hold" data-cls="Wet" disabled>Hold to record</button>
+        </div>
+        <div class="cls dry">
+          <div class="top"><h3>📦 Dry</h3><span class="count" id="countDry">0 photos</span></div>
+          <small>Paper, cardboard, notebooks</small>
+          <div class="thumbs" id="thumbsDry"></div>
+          <button class="hold" data-cls="Dry" disabled>Hold to record</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="step off" id="step2">
+      <h2><span class="num">2</span> Train: let the AI study</h2>
+      <div class="row">
+        <button class="big" id="trainBtn" disabled>🧠 Train my AI</button>
+        <div class="bar"><i id="trainBar"></i></div>
+      </div>
+      <p class="msg" id="trainMsg">Take at least 10 photos of each first.</p>
+    </section>
+
+    <section class="step off" id="step3">
+      <h2><span class="num">3</span> Test: show something new!</h2>
+      <div class="meter"><span>🍌 Wet</span><div class="track"><div class="fill" id="fillWet" style="background:var(--wet)"></div></div><span id="pctWet">–</span></div>
+      <div class="meter"><span>📦 Dry</span><div class="track"><div class="fill" id="fillDry" style="background:var(--dry)"></div></div><span id="pctDry">–</span></div>
+      <div>
+        <p class="hint" style="margin:0 0 8px"><b>Why did it say that?</b> These are the photos it remembers that look most like what it sees now:</p>
+        <div class="why" id="why"><span class="hint">Train the AI to see this.</span></div>
+      </div>
+      <div class="explain">💡 <b>How it thinks:</b> the AI turns every photo into numbers. It compares the new photo with all your photos, finds the <b>5 closest ones</b>, and lets them vote. Most votes wins!</div>
+      <div class="row"><button class="ghost" id="resetBtn">Start over</button></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const video = $('cam');
+  const SIZE = 24, K = 5, MIN_PHOTOS = 10;
+  const COLORS = { Wet: '#1E7A4C', Dry: '#E07A1F' };
+  const EMOJI = { Wet: '🍌', Dry: '📦' };
+
+  const fCan = document.createElement('canvas'); fCan.width = fCan.height = SIZE;
+  const fCtx = fCan.getContext('2d', { willReadFrequently: true });
+  const tCan = document.createElement('canvas'); tCan.width = tCan.height = 72;
+  const tCtx = tCan.getContext('2d');
+
+  let photos = { Wet: [], Dry: [] };   // what the kids taught
+  let brain = null;                    // the trained AI (a copy of the photos it studied)
+  let needsRetrain = false;
+
+  function drawCrop(ctx, size) {
+    const vw = video.videoWidth, vh = video.videoHeight, s = Math.min(vw, vh);
+    ctx.drawImage(video, (vw - s) / 2, (vh - s) / 2, s, s, 0, 0, size, size);
+  }
+
+  // Photo -> list of numbers: tiny 24x24 colour picture + a colour count
+  function photoToNumbers() {
+    drawCrop(fCtx, SIZE);
+    const px = fCtx.getImageData(0, 0, SIZE, SIZE).data;
+    const n = SIZE * SIZE, out = new Float32Array(n * 3 + 64);
+    for (let i = 0; i < n; i++) {
+      const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2];
+      out[i * 3] = r / 255; out[i * 3 + 1] = g / 255; out[i * 3 + 2] = b / 255;
+      out[n * 3 + ((r >> 6) * 16 + (g >> 6) * 4 + (b >> 6))] += 12 / n;
+    }
+    return out;
+  }
+  function thumb() { drawCrop(tCtx, 72); return tCan.toDataURL('image/jpeg', 0.7); }
+
+  function distance(a, b) {
+    let s = 0;
+    for (let i = 0; i < a.length; i++) { const d = a[i] - b[i]; s += d * d; }
+    return Math.sqrt(s);
+  }
+
+  // The AI's brain: find the K closest photos and let them vote
+  function predict(nums) {
+    const scored = brain.map(p => ({ ...p, d: distance(nums, p.nums) })).sort((a, b) => a.d - b.d);
+    const near = scored.slice(0, Math.min(K, scored.length));
+    const votes = { Wet: 0, Dry: 0 };
+    near.forEach(p => votes[p.label] += 1 / (p.d + 0.5));
+    const total = votes.Wet + votes.Dry;
+    return { Wet: votes.Wet / total, Dry: votes.Dry / total, near };
+  }
+
+  // ---------- camera ----------
+  $('startBtn').addEventListener('click', async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+      video.srcObject = stream; await video.play();
+      $('camoff').hidden = true; $('guide').hidden = false;
+      $('step1').classList.remove('off');
+      document.querySelectorAll('.hold').forEach(b => b.disabled = false);
+    } catch (e) {
+      $('camMsg').textContent = 'The camera is blocked. Click the camera icon in the address bar, choose Allow, then try again.';
+    }
+  });
+
+  // ---------- step 1: hold to record ----------
+  let recTimer = null;
+  function startRec(btn) {
+    if (recTimer || btn.disabled) return;
+    const label = btn.dataset.cls;
+    btn.classList.add('active'); btn.textContent = 'Recording… keep holding';
+    $('recdot').hidden = false;
+    recTimer = setInterval(() => {
+      photos[label].push({ label, nums: photoToNumbers(), img: thumb() });
+      if (brain) needsRetrain = true;
+      render();
+    }, 120);
+  }
+  function stopRec() {
+    if (!recTimer) return;
+    clearInterval(recTimer); recTimer = null;
+    $('recdot').hidden = true;
+    document.querySelectorAll('.hold').forEach(b => { b.classList.remove('active'); b.textContent = 'Hold to record'; });
+  }
+  document.querySelectorAll('.hold').forEach(btn => {
+    btn.addEventListener('pointerdown', e => { e.preventDefault(); startRec(btn); });
+    btn.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); startRec(btn); } });
+    btn.addEventListener('keyup', stopRec);
+  });
+  window.addEventListener('pointerup', stopRec);
+  window.addEventListener('pointercancel', stopRec);
+  window.addEventListener('blur', stopRec);
+
+  function render() {
+    for (const c of ['Wet', 'Dry']) {
+      $('count' + c).textContent = photos[c].length + (photos[c].length === 1 ? ' photo' : ' photos');
+      $('thumbs' + c).innerHTML = photos[c].slice(-6).map(p => `<img src="${p.img}" alt="">`).join('');
+    }
+    const ready = photos.Wet.length >= MIN_PHOTOS && photos.Dry.length >= MIN_PHOTOS;
+    $('trainBtn').disabled = !ready;
+    $('step2').classList.toggle('off', !ready);
+    if (!ready) $('trainMsg').textContent = `Take at least ${MIN_PHOTOS} photos of each first.`;
+    else if (!brain) $('trainMsg').textContent = 'Ready! Press Train.';
+    else if (needsRetrain) $('trainMsg').textContent = 'You added new photos. Press Train again to make the AI smarter!';
+  }
+
+  // ---------- step 2: train ----------
+  $('trainBtn').addEventListener('click', () => {
+    const all = [...photos.Wet, ...photos.Dry];
+    $('trainBtn').disabled = true;
+    let i = 0;
+    const timer = setInterval(() => {
+      i = Math.min(all.length, i + Math.ceil(all.length / 25));
+      $('trainBar').style.width = (100 * i / all.length) + '%';
+      $('trainMsg').textContent = `Studying photo ${i} of ${all.length}…`;
+      if (i >= all.length) {
+        clearInterval(timer);
+        brain = all.map(p => ({ ...p }));
+        needsRetrain = false;
+        $('trainMsg').textContent = `🎉 Done! Your AI learned from ${all.length} photos. Go to Step 3!`;
+        $('trainBtn').disabled = false;
+        $('step3').classList.remove('off');
+        $('badge').hidden = false;
+      }
+    }, 60);
+  });
+
+  // ---------- step 3: live test ----------
+  let last = 0, lastWhy = 0;
+  function loop(t) {
+    requestAnimationFrame(loop);
+    if (!brain || recTimer || video.readyState < 2 || t - last < 150) return;
+    last = t;
+    const r = predict(photoToNumbers());
+    const top = r.Wet >= r.Dry ? 'Wet' : 'Dry', conf = Math.round(100 * Math.max(r.Wet, r.Dry));
+    const badge = $('badge');
+    badge.textContent = `${EMOJI[top]} ${top} — ${conf}%` + (conf < 65 ? ' 🤔' : '');
+    badge.style.background = COLORS[top]; badge.style.color = '#fff';
+    for (const c of ['Wet', 'Dry']) {
+      $('fill' + c).style.width = (100 * r[c]) + '%';
+      $('pct' + c).textContent = Math.round(100 * r[c]) + '%';
+    }
+    if (t - lastWhy > 600) {
+      lastWhy = t;
+      $('why').innerHTML = r.near.slice(0, 3).map(p =>
+        `<figure><img src="${p.img}" alt="${p.label} photo" style="border-color:${COLORS[p.label]}"><span style="color:${COLORS[p.label]}">${p.label}</span></figure>`).join('');
+    }
+  }
+  requestAnimationFrame(loop);
+
+  // ---------- start over (two clicks, no popup) ----------
+  let resetArmed = false;
+  $('resetBtn').addEventListener('click', () => {
+    if (!resetArmed) { resetArmed = true; $('resetBtn').textContent = 'Click again to delete all photos'; setTimeout(() => { resetArmed = false; $('resetBtn').textContent = 'Start over'; }, 3000); return; }
+    resetArmed = false; $('resetBtn').textContent = 'Start over';
+    photos = { Wet: [], Dry: [] }; brain = null; needsRetrain = false;
+    $('trainBar').style.width = '0'; $('badge').hidden = true; $('step3').classList.add('off');
+    $('why').innerHTML = '<span class="hint">Train the AI to see this.</span>';
+    ['Wet', 'Dry'].forEach(c => { $('fill' + c).style.width = '0'; $('pct' + c).textContent = '–'; });
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
